@@ -1,3 +1,3 @@
 python
-# Assuming you want to execute some Python code, here's a simple example:
+# Example of a simple Python script
 print("Hello, World!")
