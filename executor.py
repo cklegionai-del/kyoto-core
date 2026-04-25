@@ -1,63 +1,59 @@
-python
-import subprocess
-import signal
+import subprocess, os, time
 
-def run_code_in_sandbox(code):
-    def handler(signum, frame):
-        raise TimeoutError("Execution timed out")
-
-    # Set the signal handler and a 30-second alarm
-    signal.signal(signal.SIGALRM, handler)
-    signal.alarm(30)
-
+def run_code(code, timeout=30, cwd=None):
+    """
+    Run Python code safely with timeout.
+    Returns: {"success": bool, "output": str}
+    """
+    if cwd is None:
+        cwd = os.getcwd()
+    
+    # Write code to temp file
+    temp_file = os.path.join(cwd, "temp_exec.py")
+    with open(temp_file, "w") as f:
+        f.write(code)
+    
     try:
-        # Write code to a temporary file
-        with open('temp_code.py', 'w') as file:
-            file.write(code)
-
-        # Run the code in a subprocess
-        result = subprocess.run(['python', 'temp_code.py'], capture_output=True, text=True)
-        return result.stdout
-
-    except TimeoutError as e:
-        return str(e)
-
+        # Run with timeout
+        result = subprocess.run(
+            ["python3", temp_file],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd
+        )
+        output = result.stdout if result.stdout else result.stderr
+        return {"success": result.returncode == 0, "output": output.strip()}
+    
+    except subprocess.TimeoutExpired:
+        return {"success": False, "output": f"⏱️ Timeout after {timeout} seconds"}
+    
+    except Exception as e:
+        return {"success": False, "output": f"❌ Error: {str(e)}"}
+    
     finally:
-        # Disable the alarm
-        signal.alarm(0)
+        # Clean up temp file
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 
-def github_push(repo='kyoto-core', file='executor.py', content=''):
-    import requests
 
-    url = f'https://api.github.com/repos/{repo}/contents/{file}'
-    token = 'YOUR_GITHUB_TOKEN'  # Replace with your GitHub token
-
-    headers = {
-        'Authorization': f'token {token}',
-        'Accept': 'application/vnd.github.v3+json',
-    }
-
-    response = requests.get(url, headers=headers)
-    sha = response.json().get('sha', None) if response.status_code == 200 else None
-
-    data = {
-        'message': 'Add executor.py with sandbox code',
-        'content': content,
-        'sha': sha
-    }
-
-    response = requests.put(url, headers=headers, json=data)
-    return response.json()
-
-# Example usage
-if __name__ == '__main__':
-    code_to_run = 'print("Hello from the sandbox!")'
-    output = run_code_in_sandbox(code_to_run)
-    print(output)
-
-    # Push to GitHub
-    with open('executor.py', 'r') as file:
-        content = file.read()
-
-    push_response = github_push(file='executor.py', content=content.encode('base64').decode('utf-8'))
-    print(push_response)
+if __name__ == "__main__":
+    # Test 1: Simple print
+    print("Test 1: Simple print")
+    result = run_code('print("Hello from executor!")')
+    print(f"Success: {result['success']}\nOutput: {result['output']}\n")
+    
+    # Test 2: Math operation
+    print("Test 2: Math operation")
+    result = run_code('print(2 + 2 * 3)')
+    print(f"Success: {result['success']}\nOutput: {result['output']}\n")
+    
+    # Test 3: Timeout test (should fail)
+    print("Test 3: Timeout test (2s timeout, code sleeps 5s)")
+    result = run_code('import time; time.sleep(5)', timeout=2)
+    print(f"Success: {result['success']}\nOutput: {result['output']}\n")
+    
+    # Test 4: Error handling
+    print("Test 4: Error handling (division by zero)")
+    result = run_code('print(10 / 0)')
+    print(f"Success: {result['success']}\nOutput: {result['output']}")
