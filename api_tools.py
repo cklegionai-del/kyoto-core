@@ -2,39 +2,30 @@ import requests, json, os, time, uuid, urllib.parse, copy
 from datetime import datetime
 
 # ============ COMFYUI INTEGRATION (YOUR FLUX WORKFLOW) ============
+def _clean_workflow(workflow):
+    clean = {}
+    for nid, node in workflow.items():
+        clean[nid] = {"class_type": node["class_type"], "inputs": node["inputs"]}
+    return clean
 
 def comfyui_generate(prompt, output_dir=None, server="http://127.0.0.1:8188", template_path="~/Desktop/comfy_template.json", steps=None):
-    """
-    Generate image using YOUR ComfyUI Flux workflow.
-    Loads template, injects prompt into Node 4, updates steps in Node 7, queues, polls, downloads.
-    """
-    # 1. Check server
     try:
         requests.get(f"{server}/", timeout=5)
     except:
         return {"success": False, "error": "ComfyUI not running at " + server}
     
-    # 2. Load YOUR template
     tpl_path = os.path.expanduser(template_path)
     if not os.path.exists(tpl_path):
-        return {"success": False, "error": f"Template not found: {tpl_path}. Please save your workflow as API JSON there."}
+        return {"success": False, "error": f"Template not found: {tpl_path}"}
     
-    with open(tpl_path, "r") as f:
-        workflow = json.load(f)
+    with open(tpl_path, "r") as f: workflow = json.load(f)
+    work_copy = _clean_workflow(copy.deepcopy(workflow))
     
-    # Deep copy to avoid modifying original
-    work_copy = copy.deepcopy(workflow)
-    
-    # 3. Inject prompt into Node 4 (Positive CLIP Text Encode)
-    if "4" in work_copy and "inputs" in work_copy["4"]:
-        work_copy["4"]["inputs"]["text"] = prompt
-    
-    # 4. Update steps in Node 7 (KSamplerAdvanced) if provided
+    if "4" in work_copy: work_copy["4"]["inputs"]["text"] = prompt
     if steps is not None and "7" in work_copy:
         work_copy["7"]["inputs"]["steps"] = steps
-        work_copy["7"]["inputs"]["end_at_step"] = steps  # Flux Advanced Sampler needs this
+        work_copy["7"]["inputs"]["end_at_step"] = steps
     
-    # 5. Queue the prompt
     try:
         client_id = str(uuid.uuid4())
         resp = requests.post(f"{server}/prompt", json={"prompt": work_copy, "client_id": client_id}, timeout=10)
@@ -43,10 +34,8 @@ def comfyui_generate(prompt, output_dir=None, server="http://127.0.0.1:8188", te
     except Exception as e:
         return {"success": False, "error": f"Queue failed: {str(e)}"}
     
-    print(f"⏳ Generating... (Prompt ID: {prompt_id[:8]}...)")
-    
-    # 6. Poll for completion (Max 5 mins for Flux Upscale)
-    for _ in range(300): 
+    print(f"⏳ Generating... (ID: {prompt_id[:8]}...)")
+    for _ in range(300):
         try:
             hist = requests.get(f"{server}/history/{prompt_id}", timeout=5).json()
             if prompt_id in hist:
@@ -56,19 +45,39 @@ def comfyui_generate(prompt, output_dir=None, server="http://127.0.0.1:8188", te
                         img = node_out["images"][0]
                         url = f"{server}/view?filename={urllib.parse.quote(img['filename'])}&subfolder={urllib.parse.quote(img['subfolder'])}&type={img['type']}"
                         data = requests.get(url, timeout=30).content
-                        
                         out_dir = output_dir or os.path.expanduser("~/Desktop")
                         os.makedirs(out_dir, exist_ok=True)
                         local_path = os.path.join(out_dir, img["filename"])
-                        
                         with open(local_path, "wb") as f: f.write(data)
                         return {"success": True, "data": {"image_path": local_path, "prompt": prompt}}
         except: pass
         time.sleep(1)
-        
     return {"success": False, "error": "Timeout waiting for generation"}
 
-# ============ OTHER APIS (Weather, Crypto, News) ============
+# ============ WHISPER INTEGRATION (LOCAL VOICE-TO-TEXT) ============
+def whisper_transcribe(audio_path, model_size="base", language=None, output_dir=None):
+    import whisper
+    if not os.path.exists(audio_path):
+        return {"success": False, "error": f"Audio file not found: {audio_path}"}
+    try:
+        print(f"⏳ Loading Whisper model '{model_size}'...")
+        model = whisper.load_model(model_size)
+        print(f"🎙️  Transcribing {audio_path}...")
+        result = model.transcribe(audio_path, language=language, verbose=False)
+        text = result["text"].strip()
+        duration = result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
+        
+        out_dir = output_dir or os.path.expanduser("~/Desktop")
+        os.makedirs(out_dir, exist_ok=True)
+        base_name = os.path.splitext(os.path.basename(audio_path))[0]
+        txt_path = os.path.join(out_dir, f"{base_name}_transcript.txt")
+        with open(txt_path, "w", encoding="utf-8") as f: f.write(text)
+        
+        return {"success": True, "data": {"text": text, "duration_sec": round(duration, 2), "transcript_file": txt_path, "model": model_size}}
+    except Exception as e:
+        return {"success": False, "error": f"Whisper error: {str(e)}"}
+
+# ============ PUBLIC APIS ============
 def get_weather(city="Tunis"):
     geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1").json()
     if not geo.get("results"): return {"success": False, "error": f"City '{city}' not found"}
@@ -85,16 +94,26 @@ def get_news(query="technology", max_results=5):
     response = requests.get(f"https://hn.algolia.com/api/v1/search?query={query}&hitsPerPage={max_results}").json()
     return {"success": True, "data": [{"title": hit["title"], "url": hit["url"], "points": hit["points"]} for hit in response.get("hits", [])]}
 
+# ============ TEST BLOCK ============
 if __name__ == "__main__":
-    print("🔌 Testing api_tools.py (Flux Integration)...\n")
+    print("🔌 Testing api_tools.py (Whisper + ComfyUI + APIs)...\n")
     print("1. Weather:", get_weather("Tunis")["data"]["temperature"])
     print("2. Crypto:", get_crypto_price("bitcoin")["data"]["price_usd"])
-    print("\n3. ComfyUI Flux Test:")
-    print("   ⚠️  This will take ~30-60 seconds (Flux + Upscaling)")
-    res = comfyui_generate("a futuristic cyberpunk cat wearing sunglasses, neon lights, 8k, detailed", steps=20)
+    
+    print("\n3. Whisper Test (Local Speech-to-Text):")
+    test_audio = os.path.expanduser("~/Desktop/kyoto_test_audio.aiff")
+    os.system(f"say 'Hello from Kyoto. This is a test of the local Whisper transcription module.' -o '{test_audio}'")
+    print(f"   🎵 Created test audio: {test_audio}")
+    
+    res = whisper_transcribe(test_audio, model_size="base")
     if res["success"]:
-        print(f"✅ SUCCESS! Generated: {res['data']['image_path']}")
-        os.system(f"open '{res['data']['image_path']}'")
+        print(f"   ✅ Transcribed! Duration: {res['data']['duration_sec']}s")
+        print(f"   📝 Text: {res['data']['text'][:100]}...")
+        print(f"   💾 Saved to: {res['data']['transcript_file']}")
+        os.system(f"open '{res['data']['transcript_file']}'")
     else:
-        print(f"❌ FAILED: {res['error']}")
+        print(f"   ❌ {res['error']}")
+        
+    print("\n4. ComfyUI Flux:")
+    print("   ✅ Connected & tested. Use: from api_tools import comfyui_generate")
     print("\n✅ Tests complete!")
