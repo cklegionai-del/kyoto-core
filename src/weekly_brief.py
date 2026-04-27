@@ -48,7 +48,6 @@ def main():
     meta = {"type": "Report", "status": "Published", "tags": ["weekly", "ai"], "client": "internal"}
     vault_path = save_note(filename.replace(".md",""), report, meta, folder="reports")
     print(f"✅ Saved to vault: {vault_path}")
-    print(f"✅ Saved to disk: {path}")
     
     # 4. Log to Kyoto memory (Best effort)
     try:
@@ -58,7 +57,7 @@ def main():
     
     # 5. Print summary
     print(f"\n📊 Brief complete: {weather['data']['temperature']}°C | BTC ${btc['data']['price_usd']:,} | 3 news items")
-    return path
+    return vault_path
 
 if __name__ == "__main__":
     main()
