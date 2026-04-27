@@ -56,3 +56,6 @@ Flux Images/
 .idea/
 *.sublime-project
 *.sublime-workspace
+*.lock.*
+src/pro_report.py
+templates/pro_invoice.html

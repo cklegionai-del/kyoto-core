@@ -74,3 +74,36 @@ if __name__ == "__main__":
         print("⚠️ No PDF found on Desktop — create one or skip test")
     
     print("\n✅ Tests complete!")
+
+# === Word (.docx) Support ===
+from docx import Document
+def read_docx(path: str) -> str:
+    doc = Document(path)
+    return "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+
+# === Excel (.xlsx) Support ===
+import pandas as pd
+def read_excel(path: str, sheet: str = None) -> str:
+    df = pd.read_excel(path, sheet_name=sheet)
+    return df.to_markdown(index=False)  # Returns clean Markdown table
+
+# === PDF (Enhanced with pdfplumber) ===
+import pdfplumber
+def read_pdf_enhanced(path: str) -> str:
+    text = []
+    with pdfplumber.open(path) as pdf:
+        for page in pdf.pages:
+            txt = page.extract_text()
+            if txt: text.append(txt)
+    return "\n\n".join(text)
+
+def read_any_file(path: str) -> str:
+    """Auto-detect format and extract text"""
+    from pathlib import Path
+    ext = Path(path).suffix.lower()
+    if ext == '.pdf': return read_pdf_enhanced(path)
+    if ext == '.docx': return read_docx(path)
+    if ext in ['.xlsx', '.xls']: return read_excel(path)
+    if ext == '.md': return Path(path).read_text(encoding='utf-8')
+    if ext == '.txt': return Path(path).read_text(encoding='utf-8')
+    return f"[Unsupported format: {ext}]"
