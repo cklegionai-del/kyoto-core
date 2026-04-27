@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; }
+  .header { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+  .company h1 { margin: 0; font-size: 24px; }
+  .meta { text-align: right; }
+  .meta h2 { margin: 0; color: #2563eb; }
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+  th { background: #f1f5f9; text-align: left; padding: 12px; border-bottom: 2px solid #cbd5e1; }
+  td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+  .totals { float: right; width: 45%; margin-top: 20px; }
+  .totals tr:last-child { font-weight: bold; font-size: 1.1em; border-top: 2px solid #334155; }
+  .footer { clear: both; margin-top: 50px; font-size: 0.85em; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+</style></head>
+<body>
+  <div class="header">
+    <div class="company">
+      <h1>{{ company_name }}</h1>
+      <p>{{ company_address }}<br>{{ company_contact }}</p>
+    </div>
+    <div class="meta">
+      <h2>{{ doc_type }} #{{ doc_number }}</h2>
+      <p><strong>Date:</strong> {{ date }}<br><strong>Client:</strong> {{ client_name }}<br><strong>Ref:</strong> {{ reference }}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Description</th><th>Qté</th><th>Prix Unit.</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.desc }}</td>
+        <td>{{ item.qty }}</td>
+        <td>{{ "%.2f"|format(item.price) }} TND</td>
+        <td>{{ "%.2f"|format(item.qty * item.price) }} TND</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totals">
+    <tr><td>Sous-total</td><td style="text-align:right">{{ "%.2f"|format(subtotal) }} TND</td></tr>
+    <tr><td>TVA (19%)</td><td style="text-align:right">{{ "%.2f"|format(tva) }} TND</td></tr>
+    <tr><td><strong>Total TTC</strong></td><td style="text-align:right"><strong>{{ "%.2f"|format(total) }} TND</strong></td></tr>
+  </table>
+
+  <div class="footer">
+    <p>Paiement sous 30 jours • IBAN: TN59 1000 0000 0000 0000 0000 • Retard: 2%/mois</p>
+    <p>Généré par Kyoto v2.0 • {{ date }}</p>
+  </div>
+</body>
+</html>
