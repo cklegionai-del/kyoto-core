@@ -43,10 +43,12 @@ def main():
     
     # 3. Save to Desktop (Using native Python open)
     filename = f"weekly_brief_{date}.md"
-    path = os.path.expanduser(f"~/Desktop/01_Hermes_Output/reports/{filename}")
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(report)
-    print(f"✅ Saved: {path}")
+    # Save to structured vault
+    from vault_tools import save_note
+    meta = {"type": "Report", "status": "Published", "tags": ["weekly", "ai"], "client": "internal"}
+    vault_path = save_note(filename.replace(".md",""), report, meta, folder="reports")
+    print(f"✅ Saved to vault: {vault_path}")
+    print(f"✅ Saved to disk: {path}")
     
     # 4. Log to Kyoto memory (Best effort)
     try:
