@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Local env & secrets
+.env
+*.env
+*.local
+*.secret
+credentials.json
+*.key
+
+# Logs & temp
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Kyoto runtime
+~/.kyoto_memory.json
+*.pdf
+*.md
+Flux Images/
+01_Hermes_Output/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
