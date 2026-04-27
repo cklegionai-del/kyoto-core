@@ -43,7 +43,7 @@ def main():
     
     # 3. Save to Desktop (Using native Python open)
     filename = f"weekly_brief_{date}.md"
-    path = os.path.expanduser(f"~/Desktop/{filename}")
+    path = os.path.expanduser(f"~/Desktop/01_Hermes_Output/reports/{filename}")
     with open(path, 'w', encoding='utf-8') as f:
         f.write(report)
     print(f"✅ Saved: {path}")
